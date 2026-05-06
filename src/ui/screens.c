@@ -574,7 +574,7 @@ void create_screen_result() {
             lv_obj_set_style_text_line_space(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_text_font(obj, &ui_font_montserrat_bold_18, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_text_letter_space(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_label_set_text_static(obj, "Muhammad ");
+            lv_label_set_text_static(obj, "");
         }
         {
             lv_obj_t *obj = lv_label_create(parent_obj);
@@ -584,7 +584,7 @@ void create_screen_result() {
             lv_obj_set_style_text_line_space(obj, 12, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_text_font(obj, &ui_font_montserrat_bold_18, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_text_letter_space(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_label_set_text_static(obj, "F1D022073");
+            lv_label_set_text_static(obj, "");
         }
     }
     
@@ -696,7 +696,7 @@ void create_screen_register() {
             lv_obj_set_style_text_line_space(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_text_font(obj, &ui_font_montserrat_bold_18, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_text_letter_space(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_label_set_text_static(obj, "Name Placeholder");
+            lv_label_set_text_static(obj, "");
         }
         {
             lv_obj_t *obj = lv_label_create(parent_obj);
@@ -706,7 +706,7 @@ void create_screen_register() {
             lv_obj_set_style_text_line_space(obj, 12, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_text_font(obj, &ui_font_montserrat_bold_18, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_text_letter_space(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_label_set_text_static(obj, "SID Place");
+            lv_label_set_text_static(obj, "");
         }
     }
     
