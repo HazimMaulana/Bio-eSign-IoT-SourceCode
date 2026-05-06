@@ -1,0 +1,27 @@
+{
+  "files": [
+    "actions.h",
+    "eez-flow.cpp",
+    "eez-flow.h",
+    "fonts.h",
+    "images.c",
+    "images.h",
+    "screens.c",
+    "screens.h",
+    "structs.h",
+    "styles.c",
+    "styles.h",
+    "ui.c",
+    "ui.h",
+    "ui_font_montserrat_bold_14.c",
+    "ui_font_montserrat_bold_18.c",
+    "ui_font_montserrat_bold_24.c",
+    "ui_image_fingerbesar.c",
+    "ui_image_fingerprint.c",
+    "ui_image_logo.c",
+    "ui_image_logo_kecil.c",
+    "ui_image_mqtt.c",
+    "ui_image_wifi.c",
+    "vars.h"
+  ]
+}
