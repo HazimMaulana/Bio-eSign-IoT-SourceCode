@@ -4,8 +4,8 @@
 
 namespace AppConfig {
   // WiFi
-  static const char* WIFI_SSID = "JImsExt";
-  static const char* WIFI_PASS = "zamil@02052009";
+  static const char* WIFI_SSID = "KOS ANDA_4G";
+  static const char* WIFI_PASS = "kosanda1";
 
   // MQTT
   static const char* MQTT_HOST = "172.235.244.139";
