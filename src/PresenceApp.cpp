@@ -183,7 +183,7 @@ void PresenceApp::handleMqttMessage(char* topic, byte* payload, unsigned int len
           Serial.print(nim);
           Serial.print(" slot=");
           Serial.println(slot);
-          ui_.showRegisterPanel(nama.c_str(), nim.c_str(), "Scan your fingerprint to register");
+          ui_.showRegisterPanel(nama.c_str(), nim.c_str(), "Register diterima\nSiapkan jari di sensor");
           publishStatus("register");
         }
       } else if (strcmp(command, "SET_ACTIVE_CLASS") == 0) {

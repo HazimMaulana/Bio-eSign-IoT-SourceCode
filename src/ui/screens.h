@@ -20,7 +20,8 @@ enum ScreensEnum {
     SCREEN_ID_SCAN = 3,
     SCREEN_ID_RESULT = 4,
     SCREEN_ID_REGISTER = 5,
-    _SCREEN_ID_LAST = 5
+    SCREEN_ID_FAILED_RESULT = 6,
+    _SCREEN_ID_LAST = 6
 };
 
 typedef struct _objects_t {
@@ -29,6 +30,7 @@ typedef struct _objects_t {
     lv_obj_t *scan;
     lv_obj_t *result;
     lv_obj_t *register_screen;
+    lv_obj_t *failed_result;
     lv_obj_t *obj0;
     lv_obj_t *obj1;
     lv_obj_t *obj2;
@@ -54,6 +56,10 @@ typedef struct _objects_t {
     lv_obj_t *register_name;
     lv_obj_t *register_nim;
     lv_obj_t *register_status;
+    lv_obj_t *obj17;
+    lv_obj_t *obj18;
+    lv_obj_t *obj19;
+    lv_obj_t *obj20;
 } objects_t;
 
 extern objects_t objects;
@@ -72,6 +78,9 @@ void tick_screen_result();
 
 void create_screen_register();
 void tick_screen_register();
+
+void create_screen_failed_result();
+void tick_screen_failed_result();
 
 void tick_screen_by_id(enum ScreensEnum screenId);
 void tick_screen(int screen_index);

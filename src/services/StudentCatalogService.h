@@ -13,6 +13,7 @@ public:
   Mahasiswa* getByIndex(size_t index);
   const Mahasiswa* getByIndex(size_t index) const;
   bool upsertFingerprint(const String& nim, const String& nama, uint8_t slot, uint16_t fingerId);
+  bool upsertFromObject(JsonObjectConst obj);
   size_t count() const;
   bool dataReceived() const;
   uint16_t updateNextId(uint16_t currentNextId) const;

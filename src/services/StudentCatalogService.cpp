@@ -55,6 +55,48 @@ bool StudentCatalogService::upsertFingerprint(const String& nim, const String& n
   return true;
 }
 
+bool StudentCatalogService::upsertFromObject(JsonObjectConst obj) {
+  String nim = String(obj["nim"] | "");
+  nim.trim();
+  if (nim.length() == 0) return false;
+
+  String nama = readNameField(obj);
+  Mahasiswa* target = nullptr;
+  for (size_t i = 0; i < mahasiswaCount_; i++) {
+    if (mahasiswaList_[i].nim == nim) {
+      target = &mahasiswaList_[i];
+      break;
+    }
+  }
+
+  if (!target) {
+    if (mahasiswaCount_ >= AppConfig::MAX_MAHASISWA) return false;
+    target = &mahasiswaList_[mahasiswaCount_++];
+    target->nim = nim;
+    target->fingerId[0] = -1;
+    target->fingerId[1] = -1;
+    target->fingerId[2] = -1;
+  }
+
+  if (nama.length() > 0) target->nama = nama;
+
+  int32_t fp1 = readFingerIdField(obj, "fingerprint1", "fingerprint_1", "fp1");
+  int32_t fp2 = readFingerIdField(obj, "fingerprint2", "fingerprint_2", "fp2");
+  int32_t fp3 = readFingerIdField(obj, "fingerprint3", "fingerprint_3", "fp3");
+  if (fp1 < 0) fp1 = readFingerIdFromArray(obj, "fingerprints", 0);
+  if (fp2 < 0) fp2 = readFingerIdFromArray(obj, "fingerprints", 1);
+  if (fp3 < 0) fp3 = readFingerIdFromArray(obj, "fingerprints", 2);
+
+  if (fp1 > 0) target->fingerId[0] = fp1;
+  if (fp2 > 0) target->fingerId[1] = fp2;
+  if (fp3 > 0) target->fingerId[2] = fp3;
+
+  mahasiswaDataReceived_ = true;
+  Serial.printf("[CATALOG] Upsert mahasiswa: %s | fp1=%d fp2=%d fp3=%d\n",
+                nim.c_str(), (int)target->fingerId[0], (int)target->fingerId[1], (int)target->fingerId[2]);
+  return true;
+}
+
 int32_t StudentCatalogService::toFingerId(JsonVariantConst v) const {
   if (v.isNull()) return -1;
   if (v.is<int32_t>() || v.is<int>() || v.is<long>()) {
@@ -138,20 +180,7 @@ bool StudentCatalogService::handlePayload(const char* payload, size_t length) {
   if (root["students"].is<JsonArrayConst>())  { applyFromArray(root["students"].as<JsonArrayConst>()); return true; }
 
   if (root.containsKey("nim") && (root.containsKey("nama") || root.containsKey("name"))) {
-    clear();
-    Mahasiswa& m = mahasiswaList_[0];
-    m.nama = readNameField(root);
-    m.nim = String(root["nim"] | "");
-    m.fingerId[0] = readFingerIdField(root, "fingerprint1", "fingerprint_1", "fp1");
-    m.fingerId[1] = readFingerIdField(root, "fingerprint2", "fingerprint_2", "fp2");
-    m.fingerId[2] = readFingerIdField(root, "fingerprint3", "fingerprint_3", "fp3");
-    if (m.fingerId[0] < 0) m.fingerId[0] = readFingerIdFromArray(root, "fingerprints", 0);
-    if (m.fingerId[1] < 0) m.fingerId[1] = readFingerIdFromArray(root, "fingerprints", 1);
-    if (m.fingerId[2] < 0) m.fingerId[2] = readFingerIdFromArray(root, "fingerprints", 2);
-    mahasiswaCount_ = 1;
-    mahasiswaDataReceived_ = true;
-    Serial.println("Data mahasiswa diperbarui: 1");
-    return true;
+    return upsertFromObject(root);
   }
 
   Serial.println("Payload mahasiswa tidak memiliki field array yang dikenali.");

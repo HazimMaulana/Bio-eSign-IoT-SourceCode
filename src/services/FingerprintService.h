@@ -6,6 +6,7 @@
 class BuzzerService;
 
 typedef void (*BackgroundCallback)(void* context);
+typedef void (*EnrollLogCallback)(void* context, const char* message);
 
 class FingerprintService {
 public:
@@ -18,6 +19,7 @@ public:
   bool clearAllTemplates();
 
   void setBackgroundCallback(BackgroundCallback cb, void* context);
+  void setEnrollLogCallback(EnrollLogCallback cb, void* context);
   void setBuzzer(BuzzerService* buzzer);
 
   bool waitFingerRemoved();
@@ -42,9 +44,12 @@ private:
   Adafruit_Fingerprint finger_;
   BackgroundCallback backgroundCb_ = nullptr;
   void* backgroundContext_ = nullptr;
+  EnrollLogCallback enrollLogCb_ = nullptr;
+  void* enrollLogContext_ = nullptr;
   BuzzerService* buzzer_ = nullptr;
 
   void background();
+  void emitEnrollLog(const char* message);
 
   uint16_t getSensorPacketPayloadSizeRaw();
   uint16_t getSensorPacketPayloadSize();

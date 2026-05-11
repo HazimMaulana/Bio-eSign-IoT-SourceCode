@@ -33,6 +33,11 @@ void FingerprintService::setBackgroundCallback(BackgroundCallback cb, void* cont
   backgroundContext_ = context;
 }
 
+void FingerprintService::setEnrollLogCallback(EnrollLogCallback cb, void* context) {
+  enrollLogCb_ = cb;
+  enrollLogContext_ = context;
+}
+
 void FingerprintService::setBuzzer(BuzzerService* buzzer) {
   buzzer_ = buzzer;
 }
@@ -40,6 +45,10 @@ void FingerprintService::setBuzzer(BuzzerService* buzzer) {
 void FingerprintService::background() {
   if (backgroundCb_) backgroundCb_(backgroundContext_);
   else delay(1);
+}
+
+void FingerprintService::emitEnrollLog(const char* message) {
+  if (enrollLogCb_) enrollLogCb_(enrollLogContext_, message);
 }
 
 Adafruit_Fingerprint& FingerprintService::raw() { return finger_; }
@@ -85,46 +94,56 @@ bool FingerprintService::doEnroll(uint16_t id) {
   Serial.printf("\n=== ENROLL ID %u ===\n", id);
 
   Serial.println("Tempelkan jari (scan 1)...");
+  emitEnrollLog("Scan 1/2\nTempelkan jari ke sensor");
   while (finger_.getImage() != FINGERPRINT_OK) {
     background();
     delay(50);
   }
   if (finger_.image2Tz(1) != FINGERPRINT_OK) {
     Serial.println("[FAIL] image2Tz(1)");
+    emitEnrollLog("Scan pertama gagal\nCoba tempelkan ulang");
     if (buzzer_) buzzer_->fail();
     return false;
   }
   Serial.println("[OK] Scan 1");
+  emitEnrollLog("Scan pertama berhasil\nAngkat jari dari sensor");
   waitFingerRemoved();
 
   Serial.println("Tempelkan jari yang sama (scan 2)...");
+  emitEnrollLog("Scan 2/2\nTempelkan jari yang sama");
   while (finger_.getImage() != FINGERPRINT_OK) {
     background();
     delay(50);
   }
   if (finger_.image2Tz(2) != FINGERPRINT_OK) {
     Serial.println("[FAIL] image2Tz(2)");
+    emitEnrollLog("Scan kedua gagal\nCoba tempelkan ulang");
     if (buzzer_) buzzer_->fail();
     return false;
   }
   Serial.println("[OK] Scan 2");
+  emitEnrollLog("Scan kedua berhasil\nMencocokkan sidik jari...");
 
   uint8_t p = finger_.createModel();
   if (p != FINGERPRINT_OK) {
     Serial.println("[FAIL] Scan 1 dan scan 2 tidak cocok.");
+    emitEnrollLog("Sidik jari tidak cocok\nUlangi dari scan pertama");
     if (buzzer_) buzzer_->fail();
     return false;
   }
 
+  emitEnrollLog("Sidik jari cocok\nMenyimpan template...");
   p = finger_.storeModel(id);
   if (p == FINGERPRINT_OK) {
     Serial.println("[OK] Enroll sukses");
+    emitEnrollLog("Pendaftaran sidik jari berhasil");
     if (buzzer_) buzzer_->success();
     return true;
   }
 
   Serial.print("[FAIL] storeModel: 0x");
   Serial.println(p, HEX);
+  emitEnrollLog("Gagal menyimpan template\nSilakan ulangi register");
   if (buzzer_) buzzer_->fail();
   return false;
 }

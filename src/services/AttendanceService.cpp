@@ -122,7 +122,7 @@ void AttendanceService::doPresensiTouchSession() {
   if (p != FINGERPRINT_OK) {
     Serial.print("[FAIL] getImage timeout/err code=0x");
     Serial.println(p, HEX);
-    if (ui_) ui_->showFail("Fingerprint not captured", "Please place your finger again");
+    if (ui_) ui_->showScanFailed();
     if (buzzer_) buzzer_->fail();
     lastScanMs_ = millis();
     if (ui_) {
@@ -137,7 +137,7 @@ void AttendanceService::doPresensiTouchSession() {
   if (p != FINGERPRINT_OK) {
     Serial.print("[FAIL] image2Tz: 0x");
     Serial.println(p, HEX);
-    if (ui_) ui_->showFail("Image error", "Finger image is not clear");
+    if (ui_) ui_->showScanFailed();
     if (buzzer_) buzzer_->fail();
     lastScanMs_ = millis();
     if (ui_) { ui_->delayWithUi(1400); ui_->showReadyPanel(activeClassName_); }
@@ -168,12 +168,12 @@ void AttendanceService::doPresensiTouchSession() {
     if (buzzer_) pubOk ? buzzer_->success() : buzzer_->fail();
   } else if (p == FINGERPRINT_NOTFOUND) {
     Serial.println("[FAIL] Sidik jari tidak dikenal");
-    if (ui_) ui_->showFail("Fingerprint not recognized", "Please try again");
+    if (ui_) ui_->showScanFailed();
     if (buzzer_) buzzer_->fail();
   } else {
     Serial.print("[FAIL] Search error: 0x");
     Serial.println(p, HEX);
-    if (ui_) ui_->showFail("Search error", "Fingerprint module returned error");
+    if (ui_) ui_->showScanFailed();
     if (buzzer_) buzzer_->fail();
   }
 

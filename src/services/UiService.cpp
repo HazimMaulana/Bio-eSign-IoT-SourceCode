@@ -339,7 +339,14 @@ void UiService::showRegisterPanel(const char* nama, const char* nim, const char*
   if (uiReady_) {
     if (objects.register_name) lv_label_set_text(objects.register_name, nama && nama[0] ? nama : "-");
     if (objects.register_nim) lv_label_set_text(objects.register_nim, nim && nim[0] ? nim : "-");
-    if (objects.register_status) lv_label_set_text(objects.register_status, status && status[0] ? status : "Scan your fingerprint to register");
+    if (objects.register_status) {
+      lv_obj_set_pos(objects.register_status, 192, 220);
+      lv_obj_set_size(objects.register_status, 265, 76);
+      lv_label_set_long_mode(objects.register_status, LV_LABEL_LONG_WRAP);
+      lv_obj_set_style_text_font(objects.register_status, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+      lv_obj_set_style_text_line_space(objects.register_status, 3, LV_PART_MAIN | LV_STATE_DEFAULT);
+      lv_label_set_text(objects.register_status, status && status[0] ? status : "Tempelkan jari ke sensor untuk mendaftar");
+    }
   }
   forceScreenRedraw();
 }
@@ -356,6 +363,18 @@ void UiService::showSuccess(const char* nama, const char* nim, const char* detai
     if (objects.obj13) lv_label_set_text(objects.obj13, "PRESENT");
   }
   (void)detail;
+  forceScreenRedraw();
+}
+
+void UiService::showScanFailed() {
+  Serial.println("[UI] -> FAILED RESULT SCREEN");
+  standbyModeForUiTick_ = false;
+  tft_.fillScreen(0xFFFF);
+  if (uiReady_ && objects.failed_result) {
+    lv_scr_load(objects.failed_result);
+    g_currentScreen = -1;
+    if (objects.obj20) lv_label_set_text(objects.obj20, "Failed");
+  }
   forceScreenRedraw();
 }
 

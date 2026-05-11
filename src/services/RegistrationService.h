@@ -34,8 +34,13 @@ private:
   Mahasiswa pendingRegistration_;
   uint8_t pendingRegistrationSlot_ = 1;
   uint16_t localNextId_ = 1;
+  String activeRegisterName_;
+  String activeRegisterNim_;
+  uint8_t activeRegisterSlot_ = 1;
 
+  static void enrollLogThunk(void* context, const char* message);
   bool publishResult(const Mahasiswa& m, uint8_t slot, uint16_t fingerId, bool success, const char* message, const uint8_t* templateBytes, size_t templateLen);
+  void showRegisterLog(const char* message);
   uint16_t allocateFingerprintId(uint16_t& nextId);
   bool readSerialLine(String& out, uint32_t timeoutMs);
   bool parseUnsignedInt(const String& s, int& outValue);

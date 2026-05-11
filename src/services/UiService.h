@@ -28,6 +28,7 @@ public:
   void showScanning(const char* text = "Verifying fingerprint...");
   void showRegisterPanel(const char* nama, const char* nim, const char* status);
   void showSuccess(const char* nama, const char* nim, const char* detail);
+  void showScanFailed();
   void showFail(const char* status, const char* detail);
 
   MCUFRIEND_kbv& tft();

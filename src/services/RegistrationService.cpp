@@ -14,6 +14,7 @@ void RegistrationService::begin(MqttService* mqtt, FingerprintService* fingerpri
   buzzer_ = buzzer;
   ui_ = ui;
   catalog_ = catalog;
+  if (fingerprint_) fingerprint_->setEnrollLogCallback(RegistrationService::enrollLogThunk, this);
 }
 
 bool RegistrationService::inProgress() const { return registrationInProgress_; }
@@ -73,12 +74,29 @@ bool RegistrationService::publishResult(const Mahasiswa& m, uint8_t slot, uint16
   return metaOk && templateOk;
 }
 
+void RegistrationService::enrollLogThunk(void* context, const char* message) {
+  if (!context) return;
+  ((RegistrationService*)context)->showRegisterLog(message);
+}
+
+void RegistrationService::showRegisterLog(const char* message) {
+  if (!ui_) return;
+  String logText = "Slot ";
+  logText += String((unsigned int)activeRegisterSlot_);
+  logText += "\n";
+  logText += (message && message[0]) ? message : "Menunggu proses register...";
+  ui_->showRegisterPanel(activeRegisterName_.c_str(), activeRegisterNim_.c_str(), logText.c_str());
+}
+
 uint16_t RegistrationService::allocateFingerprintId(uint16_t& nextId) {
+  if (catalog_) nextId = catalog_->updateNextId(nextId);
   uint16_t sensorCandidate = fingerprint_->templateCount() + 1;
   uint16_t candidate = sensorCandidate;
   if (candidate < nextId) candidate = nextId;
   if (candidate == 0) candidate = 1;
   if (candidate > fingerprint_->capacity()) return 0;
+  Serial.printf("[REGISTER] Allocated finger_id=%u (sensor_count=%u next_id=%u)\n",
+                (unsigned int)candidate, (unsigned int)sensorCandidate - 1, (unsigned int)nextId);
   return candidate;
 }
 
@@ -103,9 +121,19 @@ bool RegistrationService::enrollSlotForMahasiswa(Mahasiswa& m, uint8_t slotIdx, 
   }
 
   fingerprint_->raw().deleteModel(enrollId);
+  activeRegisterName_ = m.nama;
+  activeRegisterNim_ = m.nim;
+  activeRegisterSlot_ = (uint8_t)(slotIdx + 1);
+  showRegisterLog("Siapkan jari untuk didaftarkan");
 
   bool ok = false;
   for (uint8_t attempt = 1; attempt <= AppConfig::ENROLL_RETRY_PER_SLOT; attempt++) {
+    if (attempt > 1) {
+      String retryText = "Percobaan ";
+      retryText += String((unsigned int)attempt);
+      retryText += "\nIkuti tuntunan di layar";
+      showRegisterLog(retryText.c_str());
+    }
     fingerprint_->waitFingerRemoved();
     ok = fingerprint_->doEnroll(enrollId);
     if (ok) break;
@@ -152,9 +180,9 @@ void RegistrationService::process(bool syncDone, bool standbyMode, const String&
   Serial.print(slot);
   Serial.println(" ===");
 
-  if (ui_) ui_->showRegisterPanel(m.nama.c_str(), m.nim.c_str(), "Scan your fingerprint to register");
+  if (ui_) ui_->showRegisterPanel(m.nama.c_str(), m.nim.c_str(), "Menunggu proses register...");
   bool ok = enrollSlotForMahasiswa(m, (uint8_t)(slot - 1), localNextId_);
-  if (ui_) ui_->showRegisterPanel(m.nama.c_str(), m.nim.c_str(), ok ? "Registration saved" : "Registration failed");
+  if (ui_) ui_->showRegisterPanel(m.nama.c_str(), m.nim.c_str(), ok ? "Register berhasil disimpan" : "Register gagal");
 
   if (ui_) ui_->delayWithUi(ok ? 1600 : 2200);
   registrationInProgress_ = false;

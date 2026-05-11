@@ -12,8 +12,8 @@
 
 objects_t objects;
 
-static const char *screen_names[] = { "loading screen", "booting_screen", "scan", "result", "register" };
-static const char *object_names[] = { "loading_screen", "booting_screen", "scan", "result", "register", "obj0", "obj1", "obj2", "obj3", "obj4", "obj5", "obj6", "obj7", "logo_unram", "unram_label", "boot_2", "obj8", "obj9", "obj10", "obj11", "obj12", "obj13", "obj14", "obj15", "obj16" };
+static const char *screen_names[] = { "loading screen", "booting_screen", "scan", "result", "register", "failedResult" };
+static const char *object_names[] = { "loading_screen", "booting_screen", "scan", "result", "register", "failed_result", "obj0", "obj1", "obj2", "obj3", "obj4", "obj5", "obj6", "obj7", "logo_unram", "unram_label", "boot_2", "obj8", "obj9", "obj10", "obj11", "obj12", "obj13", "obj14", "obj15", "obj16", "obj17", "obj18", "obj19", "obj20" };
 
 //
 // Event handlers
@@ -680,13 +680,14 @@ void create_screen_register() {
             lv_obj_t *obj = lv_label_create(parent_obj);
             objects.obj16 = obj;
             objects.register_status = obj;
-            lv_obj_set_pos(obj, 192, 234);
-            lv_obj_set_size(obj, 265, 58);
-            lv_obj_set_style_text_line_space(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_text_font(obj, &ui_font_montserrat_bold_18, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_pos(obj, 192, 220);
+            lv_obj_set_size(obj, 265, 76);
+            lv_label_set_long_mode(obj, LV_LABEL_LONG_WRAP);
+            lv_obj_set_style_text_line_space(obj, 3, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(obj, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_text_letter_space(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_set_style_text_color(obj, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_label_set_text_static(obj, "Scan your fingerprint to register");
+            lv_label_set_text_static(obj, "Tempelkan jari ke sensor untuk mendaftar");
         }
         {
             lv_obj_t *obj = lv_label_create(parent_obj);
@@ -718,6 +719,106 @@ void tick_screen_register() {
     (void)flowState;
 }
 
+void create_screen_failed_result() {
+    lv_obj_t *obj = lv_obj_create(0);
+    objects.failed_result = obj;
+    lv_obj_set_pos(obj, 0, 0);
+    lv_obj_set_size(obj, 480, 320);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+    {
+        lv_obj_t *parent_obj = obj;
+        {
+            lv_obj_t *obj = lv_obj_create(parent_obj);
+            objects.obj17 = obj;
+            lv_obj_set_pos(obj, 1, 1);
+            lv_obj_set_size(obj, 480, 67);
+            lv_obj_set_style_pad_left(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_top(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_right(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_pad_bottom(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_radius(obj, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(obj, lv_color_hex(0x072756), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_grad_stop(obj, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_opa(obj, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        {
+            lv_obj_t *obj = lv_obj_create(parent_obj);
+            objects.obj18 = obj;
+            lv_obj_set_pos(obj, 11, 89);
+            lv_obj_set_size(obj, 460, 213);
+            lv_obj_set_style_outline_color(obj, lv_color_hex(0x65ff00), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_border_color(obj, lv_color_hex(0xff0200), LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        {
+            lv_obj_t *obj = lv_image_create(parent_obj);
+            lv_obj_set_pos(obj, 11, 14);
+            lv_obj_set_size(obj, 44, 41);
+            lv_image_set_src(obj, &img_logo_kecil);
+        }
+        {
+            lv_obj_t *obj = lv_label_create(parent_obj);
+            objects.obj19 = obj;
+            lv_obj_set_pos(obj, 59, 26);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_obj_set_style_text_color(obj, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(obj, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_label_set_text_static(obj, "Biometric System");
+        }
+        {
+            lv_obj_t *obj = lv_image_create(parent_obj);
+            lv_obj_set_pos(obj, 55, 138);
+            lv_obj_set_size(obj, 89, 119);
+            lv_image_set_src(obj, &img_fingerbesar);
+            lv_image_set_scale(obj, 150);
+        }
+        {
+            lv_obj_t *obj = lv_line_create(parent_obj);
+            lv_obj_set_pos(obj, 183, 121);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            static lv_point_precise_t line_points[] = {
+                { 5, 0 },
+                { 5, 150 }
+            };
+            lv_line_set_points(obj, line_points, 2);
+        }
+        {
+            lv_obj_t *obj = lv_label_create(parent_obj);
+            lv_obj_set_pos(obj, 221, 149);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_obj_set_style_text_line_space(obj, 12, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(obj, &ui_font_montserrat_bold_18, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_letter_space(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_label_set_text_static(obj, "Fingerprint not found");
+        }
+        {
+            lv_obj_t *obj = lv_label_create(parent_obj);
+            objects.obj20 = obj;
+            lv_obj_set_pos(obj, 300, 235);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_obj_set_style_text_line_space(obj, 12, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(obj, &ui_font_montserrat_bold_18, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_letter_space(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_color(obj, lv_color_hex(0xff2d00), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_label_set_text_static(obj, "Failed");
+        }
+        {
+            lv_obj_t *obj = lv_label_create(parent_obj);
+            lv_obj_set_pos(obj, 283, 187);
+            lv_obj_set_size(obj, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_obj_set_style_text_line_space(obj, 12, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_font(obj, &ui_font_montserrat_bold_18, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_letter_space(obj, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_label_set_text_static(obj, "Try again");
+        }
+    }
+    
+    tick_screen_failed_result();
+}
+
+void tick_screen_failed_result() {
+}
+
 typedef void (*tick_screen_func_t)();
 tick_screen_func_t tick_screen_funcs[] = {
     tick_screen_loading_screen,
@@ -725,9 +826,10 @@ tick_screen_func_t tick_screen_funcs[] = {
     tick_screen_scan,
     tick_screen_result,
     tick_screen_register,
+    tick_screen_failed_result,
 };
 void tick_screen(int screen_index) {
-    if (screen_index >= 0 && screen_index < 5) {
+    if (screen_index >= 0 && screen_index < 6) {
         tick_screen_funcs[screen_index]();
     }
 }
@@ -831,4 +933,5 @@ void create_screens() {
     create_screen_scan();
     create_screen_result();
     create_screen_register();
+    create_screen_failed_result();
 }
