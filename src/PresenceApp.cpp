@@ -42,7 +42,6 @@ void PresenceApp::begin() {
   wifi_.begin(&ui_);
   mqtt_.setMessageHandler(PresenceApp::mqttThunk, this);
   mqtt_.begin(&ui_);
-  publishStatus("online");
 
   sync_.begin(&mqtt_, &fingerprint_, &ui_);
   registration_.begin(&mqtt_, &fingerprint_, &buzzer_, &ui_, &catalog_);
@@ -55,10 +54,8 @@ void PresenceApp::begin() {
     fingerprint_.clearAllTemplates();
   }
 
-  ui_.sensorChecking();
-  sync_.requestSync();
-  sync_.setExpected(true);
-  sync_.publishAck("sync_requested", "", "boot_request");
+  ui_.showSyncOnlySensorPanel("Waiting sync...");
+  mqtt_.publishDiscovery(wifi_.ipString());
 
   fingerprint_.printInfo(nextId_);
 
@@ -148,7 +145,7 @@ void PresenceApp::handleMqttMessage(char* topic, byte* payload, unsigned int len
   Serial.print("[MQTT] Topic: ");
   Serial.println(topic);
 
-  if (strcmp(topic, AppConfig::TOPIC_MAHASISWA) == 0) {
+  if (strcmp(topic, AppConfig::topicMahasiswa().c_str()) == 0) {
     if (standbyMode_) {
       Serial.println("[STANDBY] Catalog ignored");
       free(raw);
@@ -159,7 +156,18 @@ void PresenceApp::handleMqttMessage(char* topic, byte* payload, unsigned int len
   } else if (strcmp(topic, AppConfig::TOPIC_SESSION_CLEAR) == 0) {
     sync_.reset("session_clear");
     fingerprint_.clearAllTemplates();
-  } else if (strcmp(topic, AppConfig::TOPIC_COMMAND) == 0) {
+  } else if (strcmp(topic, AppConfig::topicDeviceConfig().c_str()) == 0) {
+    DynamicJsonDocument doc(length + 256);
+    if (!deserializeJson(doc, raw, length)) {
+      bool assigned = doc["assigned"] | false;
+      if (!assigned) {
+        bool clearTemplates = doc["clear_templates"] | true;
+        enterStandbyMode(clearTemplates);
+      } else {
+        Serial.println("[CONFIG] Device assignment config received");
+      }
+    }
+  } else if (strcmp(topic, AppConfig::topicCommand().c_str()) == 0) {
     DynamicJsonDocument doc(length + 256);
     if (!deserializeJson(doc, raw, length)) {
       const char* command = doc["command"] | "";
@@ -185,6 +193,8 @@ void PresenceApp::handleMqttMessage(char* topic, byte* payload, unsigned int len
           Serial.println(slot);
           ui_.showRegisterPanel(nama.c_str(), nim.c_str(), "Register diterima\nSiapkan jari di sensor");
           publishStatus("register");
+        } else {
+          Serial.println("[REGISTER] Ignored: nim/name is missing");
         }
       } else if (strcmp(command, "SET_ACTIVE_CLASS") == 0) {
         String targetClass = String(doc["class_code"] | "");
@@ -192,7 +202,19 @@ void PresenceApp::handleMqttMessage(char* topic, byte* payload, unsigned int len
         setActiveClass(targetClass, targetClassName);
       }
     }
-  } else if (strcmp(topic, AppConfig::TOPIC_TEMPLATE_MANIFEST) == 0) {
+  } else if (strcmp(topic, AppConfig::topicAttendanceAck().c_str()) == 0) {
+    DynamicJsonDocument doc(length + 256);
+    if (!deserializeJson(doc, raw, length)) {
+      const char* status = doc["status"] | "";
+      if (strcmp(status, "duplicate") == 0) {
+        Serial.println("[ATTENDANCE] Duplicate attendance ACK received");
+        ui_.showScanFailed("Anda sudah absen!");
+        buzzer_.fail();
+        ui_.delayWithUi(1800);
+        ui_.showReadyPanel(activeClassName_);
+      }
+    }
+  } else if (strcmp(topic, AppConfig::topicTemplateManifest().c_str()) == 0) {
     if (standbyMode_) {
       Serial.println("[STANDBY] Manifest ignored");
       free(raw);
@@ -201,7 +223,7 @@ void PresenceApp::handleMqttMessage(char* topic, byte* payload, unsigned int len
     ui_.sensorChecking();
     sync_.handleManifestPayload(raw, length);
     sync_.tryFinalizeSync(activeClassName_);
-  } else if (strncmp(topic, AppConfig::TOPIC_TEMPLATE_CHUNK, strlen(AppConfig::TOPIC_TEMPLATE_CHUNK)) == 0) {
+  } else if (strncmp(topic, AppConfig::topicTemplateChunk().c_str(), AppConfig::topicTemplateChunk().length()) == 0) {
     if (standbyMode_) {
       Serial.println("[STANDBY] Chunk ignored");
       free(raw);

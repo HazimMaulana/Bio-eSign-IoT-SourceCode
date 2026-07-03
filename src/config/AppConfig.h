@@ -3,33 +3,57 @@
 #include <Arduino.h>
 
 namespace AppConfig {
-  // WiFi
-  static const char* WIFI_SSID = "Jimsss";
-  static const char* WIFI_PASS = "12345678";
-
   // MQTT
-  static const char* MQTT_HOST = "172.235.244.139";
+  static const char* MQTT_HOST = "43.156.127.102";
   static constexpr uint16_t MQTT_PORT = 1883;
   static const char* MQTT_USERNAME = "backend_service";
   static const char* MQTT_PASSWORD = "passwordbe";
-  static const char* DEVICE_ID = "ESP32S3_R302_01";
+  static const char* DEVICE_ID_PREFIX = "EPS-32 S3";
   static constexpr uint16_t MQTT_BUFFER_SIZE = 6144;
 
+  inline String macAddressCompact() {
+    uint64_t mac = ESP.getEfuseMac();
+    char buffer[13];
+    snprintf(
+      buffer,
+      sizeof(buffer),
+      "%04X%08X",
+      (uint16_t)(mac >> 32),
+      (uint32_t)mac
+    );
+    return String(buffer);
+  }
+
+  inline const String& deviceId() {
+    static String id = String(DEVICE_ID_PREFIX) + "-" + macAddressCompact();
+    return id;
+  }
+
+  inline String deviceTopic(const char* suffix) {
+    return String("presence/devices/") + deviceId() + "/" + suffix;
+  }
+
+  inline String serverTopic(const char* suffix) {
+    return String("presence/server/") + deviceId() + "/" + suffix;
+  }
+
   // Topics
-  static const char* TOPIC_PRESENSI          = "presence/presensi";
-  static const char* TOPIC_MAHASISWA         = "presence/mahasiswa/catalog";
+  static const char* TOPIC_PROVISIONING_DISCOVER = "presence/provisioning/discover";
   static const char* TOPIC_REGISTRASI        = "presence/mahasiswa/registrasi";
-  static const char* TOPIC_REGISTER_ACK      = "presence/mahasiswa/templates/register_ack/ESP32S3_R302_01";
-  static const char* TOPIC_TEMPLATE_REQ      = "presence/mahasiswa/templates/request";
-  static const char* TOPIC_TEMPLATE_MANIFEST = "presence/mahasiswa/templates/manifest";
-  static const char* TOPIC_TEMPLATE_CHUNK    = "presence/mahasiswa/templates/chunk";
-  static const char* TOPIC_TEMPLATE_CHUNK_WILDCARD = "presence/mahasiswa/templates/chunk/#";
-  static const char* TOPIC_TEMPLATE_ACK      = "presence/mahasiswa/templates/ack";
-  static const char* TOPIC_STATUS            = "presence/device/ESP32S3_R302_01/status";
   static const char* TOPIC_SESSION_CLEAR     = "presence/mahasiswa/session/clear";
-  static const char* TOPIC_COMMAND           = "presence/device/ESP32S3_R302_01/command";
-  static const char* TOPIC_ATTENDANCE        = "presence/attendance";
   static const char* TOPIC_REGISTRASI_TEMPLATE_PREFIX = "presence/mahasiswa/registrasi/template";
+
+  inline String topicDeviceConfig() { return deviceTopic("config"); }
+  inline String topicAttendanceAck() { return serverTopic("attendance/ack"); }
+  inline String topicPresensi() { return deviceTopic("attendance"); }
+  inline String topicMahasiswa() { return deviceTopic("catalog"); }
+  inline String topicTemplateReq() { return deviceTopic("template/request"); }
+  inline String topicTemplateManifest() { return deviceTopic("template/manifest"); }
+  inline String topicTemplateChunk() { return deviceTopic("template/chunk"); }
+  inline String topicTemplateChunkWildcard() { return deviceTopic("template/chunk/#"); }
+  inline String topicTemplateAck() { return deviceTopic("template/ack"); }
+  inline String topicStatus() { return deviceTopic("status"); }
+  inline String topicCommand() { return deviceTopic("command"); }
 
   // Fingerprint R302
   static constexpr int FP_RX = 41;

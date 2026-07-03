@@ -44,14 +44,15 @@ bool TemplateSyncService::requestSync() {
   if (!mqtt_ || !mqtt_->isConnected()) return false;
 
   JsonDocument doc;
-  doc["device_id"] = AppConfig::DEVICE_ID;
+  doc["device_id"] = AppConfig::deviceId();
   doc["action"] = "sync_templates";
 
   char payload[160];
   size_t n = serializeJson(doc, payload, sizeof(payload));
   if (n == 0) return false;
 
-  bool ok = mqtt_->publish(AppConfig::TOPIC_TEMPLATE_REQ, payload);
+  String topic = AppConfig::topicTemplateReq();
+  bool ok = mqtt_->publish(topic.c_str(), payload);
   Serial.print("[SYNC] Request sync publish: ");
   Serial.println(ok ? "OK" : "FAIL");
   if (ok) Serial.println(payload);
@@ -62,7 +63,7 @@ bool TemplateSyncService::publishAck(const char* eventName, const char* template
   if (!mqtt_ || !mqtt_->isConnected()) return false;
 
   JsonDocument doc;
-  doc["device_id"] = AppConfig::DEVICE_ID;
+  doc["device_id"] = AppConfig::deviceId();
   doc["event"] = eventName;
   doc["sync_id"] = state_.syncId;
   doc["sync_done"] = syncDone_;
@@ -78,7 +79,8 @@ bool TemplateSyncService::publishAck(const char* eventName, const char* template
   size_t n = serializeJson(doc, payload, sizeof(payload));
   if (n == 0) return false;
 
-  bool ok = mqtt_->publish(AppConfig::TOPIC_TEMPLATE_ACK, payload);
+  String topic = AppConfig::topicTemplateAck();
+  bool ok = mqtt_->publish(topic.c_str(), payload);
   Serial.print("[SYNC] ACK ");
   Serial.print(eventName);
   Serial.print(": ");
@@ -194,13 +196,12 @@ void TemplateSyncService::tryFinalizeSync(const String& activeClassName) {
   if (!state_.manifestReceived) return;
 
   if (state_.totalTemplates == 0) {
-    syncDone_ = true;
+    syncDone_ = false;
     state_.inProgress = false;
-    syncExpected_ = false;
-    publishAck("sync_complete", "", "no_templates");
+    syncExpected_ = true;
+    publishAck("sync_waiting", "", "no_templates");
     if (ui_) {
-      ui_->sensorReady();
-      ui_->showReadyPanel(activeClassName);
+      ui_->showSyncOnlySensorPanel("Waiting templates...");
     }
     return;
   }
@@ -288,7 +289,7 @@ void TemplateSyncService::handleManifestPayload(const char* payload, size_t leng
 }
 
 bool TemplateSyncService::parseChunkTopic(const char* topic, String& syncId, String& uid, uint16_t& chunkIndex) const {
-  String prefix = String(AppConfig::TOPIC_TEMPLATE_CHUNK) + "/";
+  String prefix = AppConfig::topicTemplateChunk() + "/";
   String topicStr = String(topic);
   if (!topicStr.startsWith(prefix)) return false;
 

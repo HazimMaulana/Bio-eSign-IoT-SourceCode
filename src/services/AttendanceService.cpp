@@ -42,7 +42,8 @@ bool AttendanceService::publishPresensi(int fingerId, int confidence, const void
   const Mahasiswa* m = (const Mahasiswa*)mahasiswaPtr;
 
   JsonDocument doc;
-  doc["device_id"] = AppConfig::DEVICE_ID;
+  doc["device_id"] = AppConfig::deviceId();
+  doc["scan_id"] = AppConfig::deviceId() + "-" + String(millis());
   doc["finger_id"] = fingerId;
   doc["confidence"] = confidence;
   doc["ts_ms"] = (uint32_t)millis();
@@ -62,7 +63,8 @@ bool AttendanceService::publishPresensi(int fingerId, int confidence, const void
     return false;
   }
 
-  bool ok = mqtt_->publish(AppConfig::TOPIC_PRESENSI, payload);
+  String topic = AppConfig::topicPresensi();
+  bool ok = mqtt_->publish(topic.c_str(), payload);
   Serial.print("Publish presensi: ");
   Serial.println(ok ? "OK" : "FAIL");
   if (ok) Serial.println(payload);

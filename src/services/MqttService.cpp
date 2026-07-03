@@ -24,16 +24,18 @@ void MqttService::ensureConnected(UiService* ui) {
     if (ui) ui->mqttConnecting();
     Serial.print("Connecting to MQTT broker... ");
 
-    String clientId = "esp32-" + String(AppConfig::DEVICE_ID) + "-" + String(random(0xffff), HEX);
+    String clientId = "esp32-" + AppConfig::deviceId() + "-" + String(random(0xffff), HEX);
     bool connected = client_.connect(clientId.c_str(), AppConfig::MQTT_USERNAME, AppConfig::MQTT_PASSWORD);
 
     if (connected) {
       Serial.println("connected");
-      subscribe(AppConfig::TOPIC_MAHASISWA, 1);
+      subscribe(AppConfig::topicMahasiswa().c_str(), 1);
       subscribe(AppConfig::TOPIC_SESSION_CLEAR, 1);
-      subscribe(AppConfig::TOPIC_COMMAND, 1);
-      subscribe(AppConfig::TOPIC_TEMPLATE_MANIFEST, 1);
-      subscribe(AppConfig::TOPIC_TEMPLATE_CHUNK_WILDCARD, 1);
+      subscribe(AppConfig::topicDeviceConfig().c_str(), 1);
+      subscribe(AppConfig::topicCommand().c_str(), 1);
+      subscribe(AppConfig::topicAttendanceAck().c_str(), 1);
+      subscribe(AppConfig::topicTemplateManifest().c_str(), 1);
+      subscribe(AppConfig::topicTemplateChunkWildcard().c_str(), 1);
 
       Serial.println("Subscribed to default presence topics");
       if (ui) ui->mqttConnected();
@@ -82,16 +84,45 @@ bool MqttService::publishStatus(const char* status, const String& ip, bool retai
   }
 
   StaticJsonDocument<192> doc;
-  doc["deviceId"] = AppConfig::DEVICE_ID;
+  doc["device_id"] = AppConfig::deviceId();
+  doc["deviceId"] = AppConfig::deviceId();
   doc["status"] = status;
   doc["ip"] = ip;
+  doc["config_url"] = "http://" + ip;
+  doc["firmware_version"] = "1.0.0";
 
-  char payload[192];
+  char payload[256];
   size_t n = serializeJson(doc, payload, sizeof(payload));
   if (n == 0) return false;
 
-  bool ok = client_.publish(AppConfig::TOPIC_STATUS, payload, retained);
+  String topic = AppConfig::topicStatus();
+  bool ok = client_.publish(topic.c_str(), payload, retained);
   Serial.print("[MQTT] Status published: ");
+  Serial.println(ok ? payload : "FAIL");
+  return ok;
+}
+
+bool MqttService::publishDiscovery(const String& ip) {
+  if (!sendingEnabled_ || !client_.connected()) {
+    Serial.println("[MQTT] Discovery publish skipped");
+    return false;
+  }
+
+  StaticJsonDocument<256> doc;
+  doc["device_id"] = AppConfig::deviceId();
+  doc["mac_address"] = WiFi.macAddress();
+  doc["firmware_version"] = "1.0.0";
+  doc["status"] = "waiting_assignment";
+  doc["ip"] = ip;
+  doc["config_url"] = "http://" + ip;
+  doc["ts_ms"] = (uint32_t)millis();
+
+  char payload[256];
+  size_t n = serializeJson(doc, payload, sizeof(payload));
+  if (n == 0) return false;
+
+  bool ok = client_.publish(AppConfig::TOPIC_PROVISIONING_DISCOVER, payload);
+  Serial.print("[MQTT] Discovery published: ");
   Serial.println(ok ? payload : "FAIL");
   return ok;
 }

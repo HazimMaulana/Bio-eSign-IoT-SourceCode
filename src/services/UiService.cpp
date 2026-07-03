@@ -366,14 +366,14 @@ void UiService::showSuccess(const char* nama, const char* nim, const char* detai
   forceScreenRedraw();
 }
 
-void UiService::showScanFailed() {
+void UiService::showScanFailed(const char* text) {
   Serial.println("[UI] -> FAILED RESULT SCREEN");
   standbyModeForUiTick_ = false;
   tft_.fillScreen(0xFFFF);
   if (uiReady_ && objects.failed_result) {
     lv_scr_load(objects.failed_result);
     g_currentScreen = -1;
-    if (objects.obj20) lv_label_set_text(objects.obj20, "Failed");
+    if (objects.obj20) lv_label_set_text(objects.obj20, text && text[0] ? text : "Failed");
   }
   forceScreenRedraw();
 }

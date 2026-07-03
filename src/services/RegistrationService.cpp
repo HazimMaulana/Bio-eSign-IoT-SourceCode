@@ -36,7 +36,7 @@ bool RegistrationService::publishResult(const Mahasiswa& m, uint8_t slot, uint16
 
   JsonDocument doc;
 
-  doc["device_id"] = AppConfig::DEVICE_ID;
+  doc["device_id"] = AppConfig::deviceId();
   doc["nim"] = m.nim;
   doc["nama"] = m.nama;
   doc["name"] = m.nama;
@@ -62,7 +62,7 @@ bool RegistrationService::publishResult(const Mahasiswa& m, uint8_t slot, uint16
     sizeof(topic),
     "%s/%s/%s/%u/%u",
     AppConfig::TOPIC_REGISTRASI_TEMPLATE_PREFIX,
-    AppConfig::DEVICE_ID,
+    AppConfig::deviceId().c_str(),
     m.nim.c_str(),
     (unsigned int)slot,
     (unsigned int)fingerId
@@ -190,7 +190,7 @@ void RegistrationService::process(bool syncDone, bool standbyMode, const String&
   if (ui_) {
     if (returnToStandby || standbyMode) ui_->showStandbyPanel();
     else if (syncDone) ui_->showReadyPanel(activeClassName);
-    else ui_->showPreparePanel();
+    else ui_->showSyncOnlySensorPanel("Waiting templates...");
   }
 }
 

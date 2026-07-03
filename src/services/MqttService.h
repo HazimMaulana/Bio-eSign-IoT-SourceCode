@@ -23,6 +23,7 @@ public:
   bool publishString(const char* topic, const String& payload, bool retained = false);
   bool subscribe(const char* topic, uint8_t qos = 0);
   bool publishStatus(const char* status, const String& ip, bool retained = true);
+  bool publishDiscovery(const String& ip);
 
   PubSubClient& rawClient();
   void setSendingEnabled(bool enabled);
