@@ -77,6 +77,12 @@ void UiService::initEezUi() {
   eez::flow::stopScriptHook = stopScriptNoop;
   ui_init();
   uiReady_ = true;
+  // ui_init() activates loading_screen by default; switch to booting_screen
+  // before the first tick()/flush so the loading screen never hits the panel.
+  if (objects.booting_screen) {
+    g_currentScreen = SCREEN_ID_BOOTING_SCREEN - 1;
+    lv_scr_load(objects.booting_screen);
+  }
   tick();
   delayWithUi(20);
 }
@@ -300,12 +306,18 @@ void UiService::showPreparePanel() {
   Serial.println("[UI] -> LOADING SCREEN");
   standbyModeForUiTick_ = false;
   if (standbyLabel_) hide(standbyLabel_);
+  bool alreadyOnLoadingScreen = (g_currentScreen == SCREEN_ID_LOADING_SCREEN - 1);
   switchScreenClean(SCREEN_ID_LOADING_SCREEN);
   tick();
   delayWithUi(50);
   configureLoadingLabels();
   if (uiReady_ && objects.obj7) lv_label_set_text(objects.obj7, "Sensor");
-  setPrepareStatus("Waiting...", "Waiting...", "Waiting...", 0);
+  // Only reset labels to "Waiting..." on a genuine entry to this screen;
+  // repeated calls while already here (e.g. retried MQTT sync events) must
+  // not wipe out status that already reached "Connected".
+  if (!alreadyOnLoadingScreen) {
+    setPrepareStatus("Waiting...", "Waiting...", "Waiting...", 0);
+  }
 }
 
 void UiService::wifiConnecting() { setPrepareStatus("Connecting...", "Waiting...", "Waiting...", 20); }

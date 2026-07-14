@@ -100,7 +100,7 @@ bool MqttService::publishStatus(const char* status, const String& ip, bool retai
   doc["status"] = status;
   doc["ip"] = ip;
   doc["config_url"] = "http://" + ip;
-  doc["firmware_version"] = "1.0.0";
+  doc["firmware_version"] = AppConfig::FIRMWARE_VERSION;
 
   char payload[256];
   size_t n = serializeJson(doc, payload, sizeof(payload));
@@ -122,7 +122,7 @@ bool MqttService::publishDiscovery(const String& ip) {
   StaticJsonDocument<256> doc;
   doc["device_id"] = AppConfig::deviceId();
   doc["mac_address"] = WiFi.macAddress();
-  doc["firmware_version"] = "1.0.0";
+  doc["firmware_version"] = AppConfig::FIRMWARE_VERSION;
   doc["status"] = "waiting_assignment";
   doc["ip"] = ip;
   doc["config_url"] = "http://" + ip;

@@ -54,4 +54,6 @@ private:
   void servicePortal();
   void configurePortalRoutes();
   String portalPage(const String& message = "");
+  String updatePage(const String& message = "");
+  bool requireOtaAuth();
 };

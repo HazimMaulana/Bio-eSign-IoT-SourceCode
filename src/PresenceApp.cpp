@@ -181,10 +181,14 @@ void PresenceApp::processPendingConfigSyncRequest() {
 }
 
 bool PresenceApp::performFirmwareUpdate(const String& firmwareUrl, const String& firmwareVersion, const String& checksum, bool force) {
-  (void)force;
-
   if (!wifi_.isOnline()) {
     Serial.println("[OTA] Update skipped: WiFi is not online");
+    return false;
+  }
+
+  if (!force && firmwareVersion.length() > 0 && firmwareVersion == AppConfig::FIRMWARE_VERSION) {
+    Serial.print("[OTA] Skipped: device already running version ");
+    Serial.println(firmwareVersion);
     return false;
   }
 

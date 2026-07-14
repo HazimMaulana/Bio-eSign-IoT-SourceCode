@@ -9,6 +9,10 @@ namespace AppConfig {
   static const char* MQTT_USERNAME = "backend_service";
   static const char* MQTT_PASSWORD = "passwordbe";
   static const char* OTA_PASSWORD = "bioesign-ota";
+#ifndef FW_VERSION
+#define FW_VERSION "1.0.0"
+#endif
+  static const char* FIRMWARE_VERSION = FW_VERSION;
   static const char* DEVICE_ID_PREFIX = "EPS-32 S3";
   static constexpr uint16_t MQTT_BUFFER_SIZE = 6144;
 
