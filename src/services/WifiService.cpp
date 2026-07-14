@@ -78,6 +78,9 @@ bool WifiService::pollStationAttempt(UiService* ui) {
   if (status == WL_NO_SSID_AVAIL) {
     state_ = ConnectionState::SsidMissing;
     if (ui) ui->wifiSsidMissing();
+    if (!portalActive_) {
+      startSetupPortal(ui);
+    }
     return false;
   }
 
@@ -89,6 +92,9 @@ bool WifiService::pollStationAttempt(UiService* ui) {
   if (!isSsidVisible(cachedSsid_)) {
     state_ = ConnectionState::SsidMissing;
     if (ui) ui->wifiSsidMissing();
+    if (!portalActive_) {
+      startSetupPortal(ui);
+    }
     return false;
   }
 
