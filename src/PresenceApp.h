@@ -29,6 +29,9 @@ private:
 
   uint16_t nextId_ = 1;
   bool standbyMode_ = false;
+  bool pendingConfigSync_ = false;
+  uint32_t pendingConfigSyncAtMs_ = 0;
+  bool discoveryPublished_ = false;
   String activeClassCode_;
   String activeClassName_;
 
@@ -39,7 +42,10 @@ private:
   void serviceBackground();
   void enterStandbyMode(bool clearTemplates);
   void setActiveClass(const String& code, const String& name);
+  void scheduleConfigSyncRequest();
+  void processPendingConfigSyncRequest();
   void publishStatus(const char* status);
+  bool performFirmwareUpdate(const String& firmwareUrl, const String& firmwareVersion, const String& checksum, bool force);
 
   bool readButtonPressedOnce();
 };

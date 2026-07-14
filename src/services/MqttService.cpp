@@ -5,6 +5,8 @@
 
 MqttService* MqttService::activeInstance_ = nullptr;
 
+static const uint32_t MQTT_RETRY_INTERVAL_MS = 5000;
+
 MqttService::MqttService() : client_(wifiClient_) {}
 
 void MqttService::begin(UiService* ui) {
@@ -20,32 +22,41 @@ void MqttService::loop() {
 }
 
 void MqttService::ensureConnected(UiService* ui) {
-  while (!client_.connected()) {
-    if (ui) ui->mqttConnecting();
-    Serial.print("Connecting to MQTT broker... ");
+  if (client_.connected()) return;
 
-    String clientId = "esp32-" + AppConfig::deviceId() + "-" + String(random(0xffff), HEX);
-    bool connected = client_.connect(clientId.c_str(), AppConfig::MQTT_USERNAME, AppConfig::MQTT_PASSWORD);
+  if (WiFi.status() != WL_CONNECTED) {
+    lastConnectAttemptAtMs_ = millis();
+    return;
+  }
 
-    if (connected) {
-      Serial.println("connected");
-      subscribe(AppConfig::topicMahasiswa().c_str(), 1);
-      subscribe(AppConfig::TOPIC_SESSION_CLEAR, 1);
-      subscribe(AppConfig::topicDeviceConfig().c_str(), 1);
-      subscribe(AppConfig::topicCommand().c_str(), 1);
-      subscribe(AppConfig::topicAttendanceAck().c_str(), 1);
-      subscribe(AppConfig::topicTemplateManifest().c_str(), 1);
-      subscribe(AppConfig::topicTemplateChunkWildcard().c_str(), 1);
+  if (millis() - lastConnectAttemptAtMs_ < MQTT_RETRY_INTERVAL_MS) {
+    return;
+  }
 
-      Serial.println("Subscribed to default presence topics");
-      if (ui) ui->mqttConnected();
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client_.state());
-      Serial.println(" retrying in 5 seconds");
-      if (ui) ui->delayWithUi(5000);
-      else delay(5000);
-    }
+  lastConnectAttemptAtMs_ = millis();
+
+  if (ui) ui->mqttConnecting();
+  Serial.print("Connecting to MQTT broker... ");
+
+  String clientId = "esp32-" + AppConfig::deviceId() + "-" + String(random(0xffff), HEX);
+  bool connected = client_.connect(clientId.c_str(), AppConfig::MQTT_USERNAME, AppConfig::MQTT_PASSWORD);
+
+  if (connected) {
+    Serial.println("connected");
+    subscribe(AppConfig::topicMahasiswa().c_str(), 1);
+    subscribe(AppConfig::TOPIC_SESSION_CLEAR, 1);
+    subscribe(AppConfig::topicDeviceConfig().c_str(), 1);
+    subscribe(AppConfig::topicCommand().c_str(), 1);
+    subscribe(AppConfig::topicAttendanceAck().c_str(), 1);
+    subscribe(AppConfig::topicTemplateManifest().c_str(), 1);
+    subscribe(AppConfig::topicTemplateChunkWildcard().c_str(), 1);
+
+    Serial.println("Subscribed to default presence topics");
+    if (ui) ui->mqttConnected();
+  } else {
+    Serial.print("failed, rc=");
+    Serial.print(client_.state());
+    Serial.println(" retrying later");
   }
 }
 

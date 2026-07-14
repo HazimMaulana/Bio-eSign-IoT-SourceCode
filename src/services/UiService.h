@@ -18,6 +18,9 @@ public:
 
   void wifiConnecting();
   void wifiConnected();
+  void wifiSsidMissing();
+  void wifiNoInternet();
+  void wifiSetupAvailable();
   void mqttConnecting();
   void mqttConnected();
   void sensorChecking();

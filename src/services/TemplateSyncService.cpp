@@ -40,14 +40,15 @@ bool TemplateSyncService::done() const { return syncDone_; }
 bool TemplateSyncService::inProgress() const { return state_.inProgress; }
 const TemplateSyncState& TemplateSyncService::state() const { return state_; }
 
-bool TemplateSyncService::requestSync() {
+bool TemplateSyncService::requestSync(const String& classCode) {
   if (!mqtt_ || !mqtt_->isConnected()) return false;
 
   JsonDocument doc;
   doc["device_id"] = AppConfig::deviceId();
   doc["action"] = "sync_templates";
+  if (classCode.length() > 0) doc["class_code"] = classCode;
 
-  char payload[160];
+  char payload[224];
   size_t n = serializeJson(doc, payload, sizeof(payload));
   if (n == 0) return false;
 

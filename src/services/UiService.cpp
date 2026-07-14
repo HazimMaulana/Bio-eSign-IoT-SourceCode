@@ -310,6 +310,9 @@ void UiService::showPreparePanel() {
 
 void UiService::wifiConnecting() { setPrepareStatus("Connecting...", "Waiting...", "Waiting...", 20); }
 void UiService::wifiConnected() { setPrepareStatus("Connected", "Waiting...", "Waiting...", 40); }
+void UiService::wifiSsidMissing() { setPrepareStatus("SSID not found", "Waiting...", "Setup available", 20); }
+void UiService::wifiNoInternet() { setPrepareStatus("WiFi connected", "No internet", "Setup available", 55); }
+void UiService::wifiSetupAvailable() { setPrepareStatus("Setup available", "Waiting...", "Waiting...", 15); }
 void UiService::mqttConnecting() { setPrepareStatus("Connected", "Connecting...", "Waiting...", 55); }
 void UiService::mqttConnected() { setPrepareStatus("Connected", "Connected", "Waiting...", 70); }
 void UiService::sensorChecking() { setPrepareStatus("Connected", "Connected", "Checking...", 85); }

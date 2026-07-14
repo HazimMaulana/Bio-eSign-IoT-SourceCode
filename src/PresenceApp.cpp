@@ -1,6 +1,9 @@
 #include "PresenceApp.h"
 #include "config/AppConfig.h"
+#include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <Update.h>
+#include <WiFiClientSecure.h>
 
 void PresenceApp::mqttThunk(void* context, char* topic, byte* payload, unsigned int length) {
   ((PresenceApp*)context)->handleMqttMessage(topic, payload, length);
@@ -42,6 +45,7 @@ void PresenceApp::begin() {
   wifi_.begin(&ui_);
   mqtt_.setMessageHandler(PresenceApp::mqttThunk, this);
   mqtt_.begin(&ui_);
+  discoveryPublished_ = false;
 
   sync_.begin(&mqtt_, &fingerprint_, &ui_);
   registration_.begin(&mqtt_, &fingerprint_, &buzzer_, &ui_, &catalog_);
@@ -55,7 +59,10 @@ void PresenceApp::begin() {
   }
 
   ui_.showSyncOnlySensorPanel("Waiting sync...");
-  mqtt_.publishDiscovery(wifi_.ipString());
+  if (wifi_.isOnline() && mqtt_.isConnected()) {
+    mqtt_.publishDiscovery(wifi_.ipString());
+    discoveryPublished_ = true;
+  }
 
   fingerprint_.printInfo(nextId_);
 
@@ -65,6 +72,7 @@ void PresenceApp::begin() {
 
 void PresenceApp::loop() {
   serviceBackground();
+  processPendingConfigSyncRequest();
 
   registration_.process(sync_.done(), standbyMode_, activeClassName_);
   attendance_.poll(standbyMode_, registration_.inProgress(), registration_.requested());
@@ -86,8 +94,19 @@ void PresenceApp::loop() {
 void PresenceApp::serviceBackground() {
   ui_.tick();
   wifi_.ensureConnected(&ui_);
-  mqtt_.ensureConnected(&ui_);
+  mqtt_.setSendingEnabled(wifi_.isOnline());
+  if (wifi_.isOnline()) {
+    mqtt_.ensureConnected(&ui_);
+  }
   mqtt_.loop();
+  if (wifi_.isOnline() && mqtt_.isConnected() && !discoveryPublished_) {
+    if (mqtt_.publishDiscovery(wifi_.ipString())) {
+      discoveryPublished_ = true;
+    }
+  }
+  if (!wifi_.isOnline()) {
+    discoveryPublished_ = false;
+  }
   sync_.processPendingFinalization(activeClassName_);
 }
 
@@ -97,6 +116,7 @@ void PresenceApp::publishStatus(const char* status) {
 
 void PresenceApp::enterStandbyMode(bool clearTemplates) {
   Serial.println("[STANDBY] Enter standby mode");
+  pendingConfigSync_ = false;
   standbyMode_ = true;
   sync_.reset("standby");
   activeClassCode_ = "";
@@ -136,6 +156,94 @@ void PresenceApp::setActiveClass(const String& code, const String& name) {
   sync_.setExpected(true);
 }
 
+void PresenceApp::scheduleConfigSyncRequest() {
+  pendingConfigSync_ = true;
+  pendingConfigSyncAtMs_ = millis() + 1500;
+}
+
+void PresenceApp::processPendingConfigSyncRequest() {
+  if (!pendingConfigSync_) return;
+  if ((int32_t)(millis() - pendingConfigSyncAtMs_) < 0) return;
+
+  if (activeClassCode_.length() == 0) {
+    pendingConfigSync_ = false;
+    return;
+  }
+
+  if (sync_.requestSync(activeClassCode_)) {
+    Serial.print("[SYNC] Requested sync from assigned config: ");
+    Serial.println(activeClassCode_);
+    pendingConfigSync_ = false;
+  } else {
+    Serial.println("[SYNC] Config sync request failed, retrying");
+    pendingConfigSyncAtMs_ = millis() + 5000;
+  }
+}
+
+bool PresenceApp::performFirmwareUpdate(const String& firmwareUrl, const String& firmwareVersion, const String& checksum, bool force) {
+  (void)force;
+
+  if (!wifi_.isOnline()) {
+    Serial.println("[OTA] Update skipped: WiFi is not online");
+    return false;
+  }
+
+  Serial.print("[OTA] Downloading firmware version: ");
+  Serial.println(firmwareVersion.length() > 0 ? firmwareVersion : "unknown");
+
+  HTTPClient http;
+  WiFiClientSecure secureClient;
+  WiFiClient plainClient;
+  bool started = false;
+
+  if (firmwareUrl.startsWith("https://")) {
+    secureClient.setInsecure();
+    started = http.begin(secureClient, firmwareUrl);
+  } else {
+    started = http.begin(plainClient, firmwareUrl);
+  }
+
+  if (!started) {
+    Serial.println("[OTA] Failed to start HTTP client");
+    return false;
+  }
+
+  int httpCode = http.GET();
+  if (httpCode != HTTP_CODE_OK) {
+    Serial.printf("[OTA] HTTP GET failed: %d\n", httpCode);
+    http.end();
+    return false;
+  }
+
+  int contentLength = http.getSize();
+  Stream* stream = http.getStreamPtr();
+
+  if (checksum.length() == 32) {
+    Update.setMD5(checksum.c_str());
+  }
+
+  if (!Update.begin(contentLength > 0 ? (size_t)contentLength : UPDATE_SIZE_UNKNOWN)) {
+    Serial.printf("[OTA] Update.begin failed: %s\n", Update.errorString());
+    http.end();
+    return false;
+  }
+
+  Serial.println("[OTA] Flashing firmware...");
+  size_t written = Update.writeStream(*stream);
+
+  if (!Update.end(true)) {
+    Serial.printf("[OTA] Update failed after %u bytes: %s\n", (unsigned int)written, Update.errorString());
+    http.end();
+    return false;
+  }
+
+  Serial.printf("[OTA] Update successful, written %u bytes\n", (unsigned int)written);
+  http.end();
+  delay(1000);
+  ESP.restart();
+  return true;
+}
+
 void PresenceApp::handleMqttMessage(char* topic, byte* payload, unsigned int length) {
   char* raw = (char*)malloc(length + 1);
   if (!raw) return;
@@ -164,7 +272,20 @@ void PresenceApp::handleMqttMessage(char* topic, byte* payload, unsigned int len
         bool clearTemplates = doc["clear_templates"] | true;
         enterStandbyMode(clearTemplates);
       } else {
-        Serial.println("[CONFIG] Device assignment config received");
+        String classCode = String(doc["class_code"] | "");
+        String className = String(doc["class_name"] | classCode);
+        if (classCode.length() > 0) {
+          Serial.print("[CONFIG] Device assignment config received for class ");
+          Serial.println(classCode);
+          if (!standbyMode_ && activeClassCode_ == classCode && (sync_.done() || sync_.inProgress() || sync_.expected())) {
+            Serial.println("[CONFIG] Duplicate assignment ignored");
+          } else {
+            setActiveClass(classCode, className);
+            scheduleConfigSyncRequest();
+          }
+        } else {
+          Serial.println("[CONFIG] Assigned config ignored: class_code is missing");
+        }
       }
     }
   } else if (strcmp(topic, AppConfig::topicCommand().c_str()) == 0) {
@@ -197,9 +318,23 @@ void PresenceApp::handleMqttMessage(char* topic, byte* payload, unsigned int len
           Serial.println("[REGISTER] Ignored: nim/name is missing");
         }
       } else if (strcmp(command, "SET_ACTIVE_CLASS") == 0) {
+        pendingConfigSync_ = false;
         String targetClass = String(doc["class_code"] | "");
         String targetClassName = String(doc["class_name"] | targetClass);
         setActiveClass(targetClass, targetClassName);
+      } else if (strcmp(command, "FIRMWARE_UPDATE") == 0) {
+        String firmwareUrl = String(doc["firmware_url"] | "");
+        String firmwareVersion = String(doc["firmware_version"] | "");
+        String checksum = String(doc["checksum"] | "");
+        bool force = doc["force"] | false;
+
+        if (firmwareUrl.length() == 0) {
+          Serial.println("[OTA] Ignored: firmware_url is missing");
+        } else {
+          Serial.print("[OTA] Firmware update requested from ");
+          Serial.println(firmwareUrl);
+          performFirmwareUpdate(firmwareUrl, firmwareVersion, checksum, force);
+        }
       }
     }
   } else if (strcmp(topic, AppConfig::topicAttendanceAck().c_str()) == 0) {

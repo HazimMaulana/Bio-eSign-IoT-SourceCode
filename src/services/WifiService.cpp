@@ -4,6 +4,8 @@
 
 static const byte DNS_PORT = 53;
 static const uint32_t WIFI_CONNECT_TIMEOUT_MS = 20000;
+static const uint32_t WIFI_RETRY_INTERVAL_MS = 15000;
+static const uint32_t WIFI_INTERNET_PROBE_INTERVAL_MS = 12000;
 static const char* WIFI_PREF_NAMESPACE = "bioesign_wifi";
 static const char* WIFI_PREF_SSID = "ssid";
 static const char* WIFI_PREF_PASS = "pass";
@@ -22,17 +24,15 @@ void WifiService::begin(UiService* ui) {
 
   if (!loadCredentials(ssid, password)) {
     Serial.println("[WiFi] No saved credentials. Starting setup portal.");
+    cachedSsid_.clear();
+    cachedPassword_.clear();
     startSetupPortal(ui);
     return;
   }
 
-  if (connectWithCredentials(ssid, password, ui)) {
-    startDashboardServer();
-    return;
-  }
-
-  Serial.println("[WiFi] Saved credentials failed. Starting setup portal.");
-  startSetupPortal(ui);
+  cachedSsid_ = ssid;
+  cachedPassword_ = password;
+  startStationAttempt(cachedSsid_, cachedPassword_, ui);
 }
 
 bool WifiService::loadCredentials(String& ssid, String& password) {
@@ -45,30 +45,106 @@ bool WifiService::loadCredentials(String& ssid, String& password) {
   return ssid.length() > 0;
 }
 
-bool WifiService::connectWithCredentials(const String& ssid, const String& password, UiService* ui) {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid.c_str(), password.c_str());
-  Serial.print("WiFi connecting to ");
-  Serial.print(ssid);
-  if (ui) ui->wifiConnecting();
+void WifiService::startStationAttempt(const String& ssid, const String& password, UiService* ui) {
+  if (ssid.length() == 0) return;
 
-  uint32_t startedAt = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - startedAt < WIFI_CONNECT_TIMEOUT_MS) {
-    Serial.print(".");
-    if (ui) ui->delayWithUi(250);
-    else delay(250);
+  if (portalActive_) {
+    WiFi.mode(WIFI_AP_STA);
+  } else {
+    WiFi.mode(WIFI_STA);
   }
 
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\nWiFi connect failed");
+  WiFi.setHostname(AppConfig::deviceId().c_str());
+  WiFi.setAutoReconnect(true);
+  WiFi.begin(ssid.c_str(), password.c_str());
+  connectionStartedAtMs_ = millis();
+  lastRetryAtMs_ = connectionStartedAtMs_;
+  lastInternetProbeAtMs_ = 0;
+  state_ = ConnectionState::Connecting;
+
+  Serial.print("WiFi connecting to ");
+  Serial.println(ssid);
+  if (ui) ui->wifiConnecting();
+}
+
+bool WifiService::pollStationAttempt(UiService* ui) {
+  if (cachedSsid_.length() == 0) return false;
+
+  wl_status_t status = WiFi.status();
+  if (status == WL_CONNECTED) {
+    return true;
+  }
+
+  if (status == WL_NO_SSID_AVAIL) {
+    state_ = ConnectionState::SsidMissing;
+    if (ui) ui->wifiSsidMissing();
     return false;
   }
 
-  Serial.println("\nWiFi OK");
-  Serial.print("ESP IP: ");
-  Serial.println(WiFi.localIP());
-  if (ui) ui->wifiConnected();
-  return true;
+  uint32_t elapsed = millis() - connectionStartedAtMs_;
+  if (elapsed < WIFI_CONNECT_TIMEOUT_MS) {
+    return false;
+  }
+
+  if (!isSsidVisible(cachedSsid_)) {
+    state_ = ConnectionState::SsidMissing;
+    if (ui) ui->wifiSsidMissing();
+    return false;
+  }
+
+  state_ = ConnectionState::SetupAvailable;
+  if (ui) ui->wifiSetupAvailable();
+  if (!portalActive_) {
+    startSetupPortal(ui);
+  }
+  return false;
+}
+
+bool WifiService::isSsidVisible(const String& ssid) {
+  if (ssid.length() == 0) return false;
+
+  int networkCount = WiFi.scanNetworks(false, true);
+  bool visible = false;
+  for (int i = 0; i < networkCount; ++i) {
+    if (WiFi.SSID(i) == ssid) {
+      visible = true;
+      break;
+    }
+  }
+  WiFi.scanDelete();
+  return visible;
+}
+
+bool WifiService::probeBackendReachable() {
+  WiFiClient client;
+  client.setTimeout(1500);
+  bool ok = client.connect(AppConfig::MQTT_HOST, AppConfig::MQTT_PORT);
+  client.stop();
+  return ok;
+}
+
+void WifiService::startOtaService() {
+  if (otaStarted_) return;
+
+  ArduinoOTA.setHostname(AppConfig::deviceId().c_str());
+  ArduinoOTA.setPassword(AppConfig::OTA_PASSWORD);
+  ArduinoOTA.onStart([]() {
+    Serial.println("[OTA] Update started");
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("[OTA] Update finished");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("[OTA] Progress: %u%%\r", (progress * 100U) / total);
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("[OTA] Error[%u]\n", error);
+  });
+
+  ArduinoOTA.begin();
+  otaStarted_ = true;
+  Serial.print("[OTA] Ready on host: ");
+  Serial.println(AppConfig::deviceId());
 }
 
 void WifiService::startDashboardServer() {
@@ -79,12 +155,26 @@ void WifiService::startDashboardServer() {
     webServerStarted_ = true;
   }
 
+  startOtaService();
+
   Serial.print("[WiFi] Dashboard URL: http://");
   Serial.println(WiFi.localIP());
 }
 
 void WifiService::startSetupPortal(UiService* ui) {
-  WiFi.mode(WIFI_AP);
+  portalActive_ = true;
+  if (cachedSsid_.length() > 0) {
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.setAutoReconnect(true);
+    if (WiFi.status() != WL_CONNECTED) {
+      WiFi.begin(cachedSsid_.c_str(), cachedPassword_.c_str());
+      connectionStartedAtMs_ = millis();
+      lastRetryAtMs_ = connectionStartedAtMs_;
+      state_ = ConnectionState::Connecting;
+    }
+  } else {
+    WiFi.mode(WIFI_AP);
+  }
 
   String apSsid = "BioESign-" + AppConfig::macAddressCompact();
   bool apOk = WiFi.softAP(apSsid.c_str());
@@ -97,7 +187,13 @@ void WifiService::startSetupPortal(UiService* ui) {
   Serial.println(apIp);
 
   if (ui) {
-    ui->showFail("WiFi Setup", "Connect to setup AP");
+    if (state_ == ConnectionState::SsidMissing) {
+      ui->wifiSsidMissing();
+    } else if (state_ == ConnectionState::NoInternet) {
+      ui->wifiNoInternet();
+    } else {
+      ui->wifiSetupAvailable();
+    }
   }
 
   dnsServer_.start(DNS_PORT, "*", apIp);
@@ -106,13 +202,15 @@ void WifiService::startSetupPortal(UiService* ui) {
     webServer_.begin();
     webServerStarted_ = true;
   }
+  startOtaService();
+  state_ = ConnectionState::SetupAvailable;
+}
 
-  while (true) {
-    dnsServer_.processNextRequest();
-    webServer_.handleClient();
-    if (ui) ui->delayWithUi(10);
-    else delay(10);
-  }
+void WifiService::servicePortal() {
+  if (!webServerStarted_) return;
+  dnsServer_.processNextRequest();
+  webServer_.handleClient();
+  if (otaStarted_) ArduinoOTA.handle();
 }
 
 void WifiService::configurePortalRoutes() {
@@ -201,17 +299,61 @@ String WifiService::portalPage(const String& message) {
 }
 
 void WifiService::ensureConnected(UiService* ui) {
-  if (WiFi.status() != WL_CONNECTED) {
-    begin(ui);
+  servicePortal();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    if (state_ != ConnectionState::Online) {
+      if (millis() - lastInternetProbeAtMs_ >= WIFI_INTERNET_PROBE_INTERVAL_MS) {
+        lastInternetProbeAtMs_ = millis();
+        if (probeBackendReachable()) {
+          state_ = ConnectionState::Online;
+          if (ui) ui->wifiConnected();
+          if (!webServerStarted_) startDashboardServer();
+          startOtaService();
+          Serial.println("[WiFi] Backend reachable");
+        } else {
+          state_ = ConnectionState::NoInternet;
+          if (ui) ui->wifiNoInternet();
+          if (!portalActive_) startSetupPortal(ui);
+          Serial.println("[WiFi] Connected, but backend is unreachable");
+        }
+      }
+    }
+
     return;
   }
 
-  if (!webServerStarted_) startDashboardServer();
-  webServer_.handleClient();
+  if (cachedSsid_.length() == 0) {
+    if (!portalActive_) startSetupPortal(ui);
+    return;
+  }
+
+  if (!portalActive_ && state_ != ConnectionState::Connecting) {
+    startSetupPortal(ui);
+  }
+
+  if (state_ == ConnectionState::Connecting) {
+    if (pollStationAttempt(ui)) {
+      lastInternetProbeAtMs_ = 0;
+    }
+    return;
+  }
+
+  if (millis() - lastRetryAtMs_ < WIFI_RETRY_INTERVAL_MS) {
+    return;
+  }
+
+  lastRetryAtMs_ = millis();
+  state_ = ConnectionState::Connecting;
+  startStationAttempt(cachedSsid_, cachedPassword_, ui);
 }
 
 bool WifiService::isConnected() const {
   return WiFi.status() == WL_CONNECTED;
+}
+
+bool WifiService::isOnline() const {
+  return state_ == ConnectionState::Online;
 }
 
 String WifiService::ipString() const {

@@ -35,6 +35,7 @@ private:
   MqttMessageHandler handler_ = nullptr;
   void* handlerContext_ = nullptr;
   bool sendingEnabled_ = true;
+  uint32_t lastConnectAttemptAtMs_ = 0;
 
   static MqttService* activeInstance_;
   static void staticCallback(char* topic, byte* payload, unsigned int length);

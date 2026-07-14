@@ -18,7 +18,7 @@ public:
   bool inProgress() const;
   const TemplateSyncState& state() const;
 
-  bool requestSync();
+  bool requestSync(const String& classCode = String());
   bool publishAck(const char* eventName, const char* templateUid, const char* message);
   void handleManifestPayload(const char* payload, size_t length);
   void handleChunkPayload(const char* topic, const uint8_t* payload, size_t length);
